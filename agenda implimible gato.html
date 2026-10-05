@@ -4388,10 +4388,15 @@
         if (printPreviewCanvas) printPreviewCanvas.replaceChildren();
       }
 
-      function updatePageDisplay(pageNumber) {
+      function updatePageDisplay(pageNumber, syncHistory = true) {
         if (pageNumber < 1) pageNumber = 1;
         if (pageNumber > pages.length) pageNumber = pages.length;
         currentPage = pageNumber;
+        const pageHash = `#p-${currentPage}`;
+        if (window.location.hash !== pageHash) {
+          const historyMethod = syncHistory ? 'pushState' : 'replaceState';
+          window.history[historyMethod]({ plannerPage: currentPage }, '', pageHash);
+        }
         if (pageSelect) pageSelect.value = currentPage;
         if (mPageLabel) mPageLabel.textContent = `${currentPage}/${pages.length}`;
 
@@ -4424,7 +4429,11 @@
           else link.removeAttribute('aria-current');
         });
 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (isSingleView) {
+          window.scrollTo({ top: 0, behavior: 'instant' });
+        } else {
+          pages[currentPage - 1].scrollIntoView({ behavior: 'instant', block: 'start' });
+        }
       }
 
       function executeSystemPrint() {
@@ -4553,8 +4562,16 @@
         });
       }
 
+      function restorePageFromHash() {
+        const match = window.location.hash.match(/^#p-(\d+)$/);
+        if (match) updatePageDisplay(parseInt(match[1], 10), false);
+      }
+
+      window.addEventListener('popstate', restorePageFromHash);
+      window.addEventListener('hashchange', restorePageFromHash);
+
       document.addEventListener('click', (e) => {
-        const tabLink = e.target.closest('.planner-tab-link');
+        const tabLink = e.target instanceof Element ? e.target.closest('.planner-tab-link') : null;
         if (tabLink) {
           e.preventDefault();
           const targetPage = parseInt(tabLink.getAttribute('data-nav'), 10);
@@ -4567,9 +4584,6 @@
       if (pageSelect) {
         pageSelect.addEventListener('change', (e) => {
           updatePageDisplay(parseInt(e.target.value, 10));
-          if (!isSingleView) {
-            pages[currentPage - 1].scrollIntoView({ behavior: 'smooth' });
-          }
         });
       }
 
@@ -4645,14 +4659,14 @@
       });
 
       if (window.location.hash) {
-        const match = window.location.hash.match(/#p-(\d+)/);
+        const match = window.location.hash.match(/^#p-(\d+)$/);
         if (match && match[1]) {
-          updatePageDisplay(parseInt(match[1], 10));
+          updatePageDisplay(parseInt(match[1], 10), false);
           return;
         }
       }
 
-      updatePageDisplay(1);
+      updatePageDisplay(1, false);
     })();
   </script>
 </body>
